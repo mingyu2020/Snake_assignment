@@ -1,0 +1,173 @@
+let s; //snake 객체
+let scl = 25; // snake 및 먹이 크기
+let food; //먹이
+let eatSound; //먹이 먹었을 때 소리 추가
+let backSound; //배경음악을 추가
+let paused = false;
+playfield = 600;
+
+function preload() {
+  eatSound = loadSound("ap_sound.mp3");
+  backSound = loadSound("bgm.mp3");
+}
+//setup = 초기설정 구현(캔버스,배경색,Snake객체 생성 등)
+function setup() {
+  createCanvas(playfield, 640); //600,640
+  backSound.loop();
+  backSound.setVolume(0.3);
+  noStroke();
+  s = new Snake();
+  frameRate (10);
+  pickLocation(); 
+}
+//배경 채색
+function drawCheckeredBackground(cellSize, numCellsX, numCellsY, color1, color2) {
+  for (let y = 0; y < numCellsY; y++) {
+    for (let x = 0; x < numCellsX; x++) {
+      if ((x + y) % 2 == 0) {
+        fill(color1);
+      } else {
+        fill(color2);
+      }
+      rect(x * cellSize, y * cellSize, cellSize, cellSize);
+    }
+  }
+}
+function draw() {
+  if (!paused) {
+  drawCheckeredBackground(25, 30, 30, color(187,237,30), color(181,230,29));	
+  scoreboard(); //점수판
+  if (s.eat(food)) { //스네이크가 먹이를 먹으면 pickLocation을 통해 다시 랜덤 배치
+    pickLocation();
+  }
+  s.death(); //뱀이 죽었는지 확인하고 죽었다면 게임을 초기화합니다.
+  s.update(); //뱀의 위치와 꼬리를 업데이트합니다.
+  s.show(); // 뱀과 먹이를 그리는 역할을 합니다.
+
+  fill (255,0,100);
+  //texture(img);
+  rect(food.x,food.y, scl, scl);
+  } else {
+    background(100,100,100,10);
+    textSize(32);
+    textAlign(CENTER);
+    fill(255);
+    text("Paused", width/2, height/2);
+  }
+  
+}
+function pickLocation() { //먹이를 생성하고 캔버스 상 랜덤한 위치에 배치
+  let cols = floor(playfield/scl); //가로 방향 개수
+  let rows = floor(playfield/scl); //세로 방향 개수
+//floor 함수를 사용하여 playfield를 scl로 나눈 후 소수점 이하를 버리고 cell의 개수 계산.
+  food = createVector(floor(random(cols)), floor(random(rows)));
+  food.mult(scl);
+//food가 꼬리 안에 나오지 않게인확인  
+  for (let i = 0; i < s.tail.length; i++) {
+    let pos = s.tail[i];
+    let d = dist(food.x, food.y, pos.x, pos.y);
+    if (d < 1) {
+      pickLocation();
+    }
+  }
+}
+//점수판
+function scoreboard() { 
+  fill(144,184,23); 
+  rect(0, 600, 600, 40); 
+  fill(255);
+  textFont("Verdana"); 
+  textSize(18); 
+  text("Score: ", 260, 625); //글씨의 위치
+  text("Highscore: ", 455, 625);
+  text(s.score, 330, 625); // 변동되는 점수 값 표시
+  text(s.highscore, 560, 625); 
+}
+//Snake 방향제어
+function keyPressed() {
+  if (keyCode === UP_ARROW){
+      s.dir(0, -1); 
+  }else if (keyCode === DOWN_ARROW) {
+      s.dir(0, 1);
+  }else if (keyCode === RIGHT_ARROW) {
+      s.dir (1, 0);
+  }else if (keyCode === LEFT_ARROW) {
+      s.dir (-1, 0);
+  }else if (key === " ") {
+    paused = !paused; //스페이스바 누르면 게임 일시정지
+  }
+}
+
+// Snake오브젝트
+function Snake() { //snake 객체의 속성을 this로 나열
+  this.x =0; 
+  this.y =0;
+  this.xspeed = 1; 
+  this.yspeed = 0;
+  this.total = 0;
+  this.tail = []; //늘어나는 꼬리의 배열을 선언
+  this.score = 0; 
+  this.highscore = 0; 
+
+  this.dir = function(x,y) { //머리의 이동 방향 설정
+    this.xspeed = x;
+    this.yspeed = y; 
+    //dir 함수는 xspeed와 yspeed를 x와 y로 설정하여 머리가 움직이는 방향을 바꿉니다.
+  }
+  this.eat = function(pos) { //만약 먹이와 뱀의 머리 위치가 같다면, 먹이를 먹은 것으로 처리
+    let d = dist(this.x, this.y, pos.x, pos.y);
+    if (d < 1) {
+      eatSound.play();
+      this.total++; //먹이를 먹으면 뱀의 꼬리 증가
+      this.score++; //먹으면 점수 추가
+      text(this.score, 330, 625);
+      if (this.score > this.highscore) {
+        this.highscore = this.score;
+      }
+      text(this.highscore, 560, 625);
+      return true; //먹은 것으로 처리, 이후 함수 실행
+    } else {
+      return false; //먹지 않은 것으로 처리
+    }
+  }
+
+  this.death = function() { //뱀의 꼬리와 머리가 충돌하면 초기화.
+    for (let i = 0; i < this.tail.length; i++) {
+      let pos = this.tail[i];
+      let d = dist(this.x, this.y, pos.x, pos.y);
+      if (d < 1) { //머리와 꼬리 간의 거리가 1보다 작으면 죽은 것으로 판단, 이후의 값들을 초기화
+        this.total = 0;
+        this.score = 0; 
+        this.tail = []; 
+      }
+    }
+  }
+  //뱀의 꼬리 배열 this.tail의 길이가 this.total과 같으면 실행,for반복문을 사용하여 뱀의 꼬리 위치를 한 칸씩 앞으로 이동시킵니다. 꼬리 배열의 첫 번째 요소를 삭제하고, 나머지 요소를 한 칸씩 앞으로 이동시키고, 마지막 요소를 현재 뱀의 위치로 업데이트 합니다.
+  this.update = function(){
+    if (this.total === this.tail.length) {
+      for (let i = 0; i < this.tail.length-1; i++) {
+        this.tail[i] = this.tail[i+1];
+    }
+
+    }
+    this.tail[this.total-1] = createVector(this.x, this.y);
+  //현재 뱀의 위치를 this.tail 배열에 추가합니다. 뱀의 꼬리 배열 this.tail의 마지막 요소는 뱀의 머리 위치를 저장합니다.
+    this.x = this.x + this.xspeed*scl;
+    this.y = this.y + this.yspeed*scl;
+//this.x와 this.y값을 뱀의 이동 방향에 따라 증가 또는 감소
+    this.x = constrain(this.x, 0, playfield-scl);
+    this.y = constrain(this.y, 0, playfield-scl);
+//constrain() 함수를 사용하여 뱀이 게임 판 안에 있는지 확인
+// 뱀이 화면 밖으로 벗어나지 않도록 해줍니다.
+  }
+  this.show = function(){ //꼬리와 머리를 화면에 표시
+    fill(255);
+    for (let i = 0; i < this.tail.length; i++) {
+        rect(this.tail[i].x, this.tail[i].y, scl, scl);
+    }
+
+    rect(this.x, this.y, scl, scl);
+  }
+}
+//for루프를 사용하여, 뱀의 각각의 꼬리 위치에 대해서 rect()함수를 사용하여 그리드를 그려줍니다.
+//머리 위치에 대해서도 rect() 함수를 사용하여 그리드를 그려줍니다. 이렇게 하여 뱀의 머리가 몸통 위에 그려지게 됩니다.
